@@ -181,7 +181,7 @@ end
 MOI.add_variables(model::AbstractConstrainedVariablesModel, n) = MOI.add_variables(model.inner, n)
 MOI.add_variable(model::AbstractConstrainedVariablesModel) = MOI.add_variable(model.inner)
 
-function MOI.add_constraint(model::AbstractConstrainedVariablesModel, f::F, s::S) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+function MOI.add_constraint(model::AbstractConstrainedVariablesModel, f::MOI.AbstractFunction, s::MOI.AbstractSet)
     ci = MOI.add_constraint(model.inner, f, s)
     push!(model.constraintIndices, ci)
     return ci
@@ -253,6 +253,26 @@ MOI.supports_add_constrained_variable(::ReverseOrderConstrainedVariablesModel, :
 
     dest = ReverseOrderConstrainedVariablesModel()
     index_map = MOI.copy_to(dest, src)
+    @test typeof(c1) == typeof(dest.constraintIndices[1])
+    @test typeof(c2) == typeof(dest.constraintIndices[2])
+
+    dest = OrderConstrainedVariablesModel()
+    bridged_dest = MOI.Bridges.full_bridge_optimizer(dest, Float64)
+    @test MOI.get(bridged_dest, MOI.VariableBridgingCost{MOI.LessThan{Float64}}()) == 0.0
+    @test MOI.get(bridged_dest, MOI.ConstraintBridgingCost{MOI.SingleVariable, MOI.LessThan{Float64}}()) == Inf
+    @test MOI.get(bridged_dest, MOI.VariableBridgingCost{MOI.GreaterThan{Float64}}()) == Inf
+    @test MOI.get(bridged_dest, MOI.ConstraintBridgingCost{MOI.SingleVariable, MOI.GreaterThan{Float64}}()) == 0.0
+    index_map = MOI.copy_to(bridged_dest, src)
+    @test typeof(c1) == typeof(dest.constraintIndices[2])
+    @test typeof(c2) == typeof(dest.constraintIndices[1])
+
+    dest = ReverseOrderConstrainedVariablesModel()
+    bridged_dest = MOI.Bridges.full_bridge_optimizer(dest, Float64)
+    @test MOI.get(bridged_dest, MOI.VariableBridgingCost{MOI.LessThan{Float64}}()) == Inf
+    @test MOI.get(bridged_dest, MOI.ConstraintBridgingCost{MOI.SingleVariable, MOI.LessThan{Float64}}()) == 0.0
+    @test MOI.get(bridged_dest, MOI.VariableBridgingCost{MOI.GreaterThan{Float64}}()) == 0.0
+    @test MOI.get(bridged_dest, MOI.ConstraintBridgingCost{MOI.SingleVariable, MOI.GreaterThan{Float64}}()) == Inf
+    index_map = MOI.copy_to(bridged_dest, src)
     @test typeof(c1) == typeof(dest.constraintIndices[1])
     @test typeof(c2) == typeof(dest.constraintIndices[2])
 end
